@@ -1,4 +1,5 @@
 // Audio data converted from WAV file by wav2sketch
+// sample from https://freewavesamples.com/e-mu-proteus-fx-wacky-snare
 
 #include "AudioSampleEmuproteusfxwackysnarewav1z.h"
 
