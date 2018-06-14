@@ -3,7 +3,13 @@
 #include <output_dac.h>
 #include <play_memory.h>
 #include <Audio.h>
-#include "AudioSampleBassdrumw.h"
+#include "hatt.h"
+#include "clap.h"
+#include "kick.h"
+#include "ride.h"
+#include "tomhigh.h"
+#include "tomlow.h"
+#include "snare.h"
 
 // GUItool: begin automatically generated code
 
@@ -14,59 +20,64 @@ AudioConnection          patchCord1(playMem1, dac1);
 
 elapsedMillis attract;
 elapsedMillis playInterval;
-
+int sound = 0;
 
 void setup() {
   AudioMemory(15);
-  pinMode(0, INPUT_PULLUP);
+  pinMode(12, INPUT_PULLUP);
   pinMode(10, OUTPUT);
   pinMode(9, OUTPUT);
   pinMode(6, OUTPUT);
-  attachInterrupt(0, drum, FALLING);
-  Serial.begin(9600);
+  attachInterrupt(12, drum, FALLING);
+  //Serial.begin(9600);
 }
 
 void drum() {
-  
-    detachInterrupt(0);
-    if(playInterval > 100){
-     attract = 0;
-     playInterval = 0;
-     analogWrite(10, 0);
-     analogWrite(9, 0);
-     analogWrite(6, 0);
-     playMem1.play(AudioSampleBassdrumw);
-     upFadeDown();
-    }
-    attachInterrupt(0, drum, FALLING);
+     if(playInterval > 150){
+      sound = 1;
+      attract = 0;
+     }
+     
 
 }
 
-void upFadeDown() {
-      elapsedMillis fadeTime;
-
-   for(int i=255;i>0;i--){
-    while (fadeTime < 1) {}
-    analogWrite(10, i);
-    analogWrite(9, i);
-    analogWrite(6, i);
-    fadeTime = 0;
-    }  
-}
 
 void loop() {
-  //Serial.println(AudioMemoryUsageMax());
-  Serial.println(AudioProcessorUsageMax());
+        if(sound == 1) {
+  
+         playMem1.play(tomlow);
+
+        elapsedMillis fadeTime;
+
+        attract = 0;
+        playInterval = 0;
+        analogWrite(10, 0);
+        analogWrite(9, 0);
+        analogWrite(6, 0);
+     
+        for(int i=255;i>0;i--){
+          while (fadeTime < 1) {}
+          analogWrite(10, i);
+          analogWrite(9, i);
+          analogWrite(6, i);
+          fadeTime = 0;
+        }
+        sound = 0;
+        }  
+    
+
 
   if(attract > 10000) {
     for(int i = 0; i<255; i++) {
-      analogWrite(10, i);
+      //analogWrite(10, i);
       elapsedMillis fadeTime; 
       while(fadeTime < 5) {}
       if(attract < 10000) {
         break;
       }
       analogWrite(10, i);
+      //analogWrite(9, i);
+      analogWrite(6, i);
       fadeTime = 0;
 
     }
@@ -77,6 +88,8 @@ void loop() {
         break;
       }
       analogWrite(10, i);
+      //analogWrite(9, i);
+      analogWrite(6, i);
       fadeTime = 0;
 
      }
