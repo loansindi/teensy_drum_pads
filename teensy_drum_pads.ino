@@ -127,6 +127,7 @@ void setup() {
 
     }
   }
+
   const char *config = "config.ini";
   IniFile ini(config);
   if (!ini.open()) {
@@ -137,6 +138,7 @@ void setup() {
     while (1)
       ;
   }
+  /*
   if (!ini.validate(buffer, bufferLen)) {
     Serial.print("ini file ");
     Serial.print(ini.getFilename());
@@ -146,6 +148,7 @@ void setup() {
     while (1)
       ;
   }
+  */
   if (! ini.getValue("colors", "idleRed", buffer, bufferLen, idleRed)) {
     Serial.print("idleRed");
 
@@ -201,6 +204,8 @@ void setup() {
 
     sdError();
   }
+
+  ini.close();
 
 
 }
