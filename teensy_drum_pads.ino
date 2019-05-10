@@ -1,3 +1,5 @@
+#include <IniFile.h>
+
 #include <memcpy_audio.h>
 #include <AudioControl.h>
 #include <output_dac.h>
@@ -12,34 +14,14 @@
 #include <Adafruit_Sensor.h>
 #include <Adafruit_PWMServoDriver.h>
 
-// called this way, it uses the default address 0x40
-Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver();
 
 Adafruit_LIS3DH lis = Adafruit_LIS3DH();
 #define CLICKTHRESHHOLD 80
 
-/*
-  #include "clap.h"
-  #include "hat.h"
-  #include "kick.h"
-  #include "ride.h"
-  #include "snare.h"
-  #include "tomhigh.h"
-  #include "tomlow.h"
-*/
-/*
-  // GUItool: begin automatically generated code
+Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver();
 
-  AudioPlayMemory          playMem1;       //xy=199,259
-  AudioOutputAnalog        dac1;           //xy=627,242
-  AudioConnection          patchCord1(playMem1, dac1);
-  // GUItool: end automatically generated code
-*/
 AudioPlaySdWav           playWav1;
-// Use one of these 3 output types: Digital I2S, Digital S/PDIF, or Analog DAC
 AudioOutputI2S           audioOutput;
-//AudioOutputSPDIF       audioOutput;
-//AudioOutputAnalog      audioOutput;
 AudioConnection          patchCord1(playWav1, 0, audioOutput, 0);
 AudioConnection          patchCord2(playWav1, 1, audioOutput, 1);
 AudioControlSGTL5000     sgtl5000_1;
@@ -50,24 +32,72 @@ int sound = 0;
 #define SDCARD_CS_PIN    10
 #define SDCARD_MOSI_PIN  7
 #define SDCARD_SCK_PIN   14
+#define BLUE 1
+#define GREEN 2
+#define RED 3
+
+
+void printErrorMessage(uint8_t e, bool eol = true)
+{
+  switch (e) {
+    case IniFile::errorNoError:
+      Serial.print("no error");
+      break;
+    case IniFile::errorFileNotFound:
+      Serial.print("file not found");
+      break;
+    case IniFile::errorFileNotOpen:
+      Serial.print("file not open");
+      break;
+    case IniFile::errorBufferTooSmall:
+      Serial.print("buffer too small");
+      break;
+    case IniFile::errorSeekError:
+      Serial.print("seek error");
+      break;
+    case IniFile::errorSectionNotFound:
+      Serial.print("section not found");
+      break;
+    case IniFile::errorKeyNotFound:
+      Serial.print("key not found");
+      break;
+    case IniFile::errorEndOfFile:
+      Serial.print("end of file");
+      break;
+    case IniFile::errorUnknownError:
+      Serial.print("unknown error");
+      break;
+    default:
+      Serial.print("unknown error value");
+      break;
+  }
+  if (eol)
+    Serial.println();
+}
+
+
+const size_t bufferLen = 80;
+char buffer[bufferLen];
+
+float idleRed;
+float idleGreen;
+float idleBlue;
+float hitRed;
+float hitGreen;
+float hitBlue;
+long hitSpeed;
+long idleSpeed;
 
 void setup() {
-  Serial.begin(9600);
+  //  const size_t bufferLen = 80;
+  //  char buffer[bufferLen];
   AudioMemory(100);
   pinMode(2, INPUT_PULLUP);
   attachInterrupt(2, drum, FALLING);
-
+  Serial.begin(9600);
   sgtl5000_1.enable();
   sgtl5000_1.volume(.8);
-  SPI.setMOSI(SDCARD_MOSI_PIN);
-  SPI.setSCK(SDCARD_SCK_PIN);
-  if (!(SD.begin(SDCARD_CS_PIN))) {
-    // stop here, but print a message repetitively
-    while (1) {
-      Serial.println("Unable to access the SD card");
-      delay(500);
-    }
-  }
+
   if (! lis.begin(0x18)) {   // change this to 0x19 for alternative i2c address
     Serial.println("Couldnt start");
     while (1);
@@ -81,18 +111,113 @@ void setup() {
 
   pwm.begin();
   pwm.setPWMFreq(1600);  // This is the maximum PWM frequency
+  pwm.setPin(GREEN, 4096);
   delay(100);
   pwm.setPin(0, 0);
-  pwm.setPin(1, 0);
-  pwm.setPin(2, 0);
-  pwm.setPin(3, 0);
+  pwm.setPin(BLUE, 0);
+  pwm.setPin(GREEN, 0);
+  pwm.setPin(RED, 0);
+  SPI.setMOSI(SDCARD_MOSI_PIN);
+  SPI.setSCK(SDCARD_SCK_PIN);
+  if (!(SD.begin(SDCARD_CS_PIN))) {
+    // stop here, but print a message repetitively
+    Serial.println("No SD card!");
+    while (1) {
+      sdError();
+
+    }
+  }
+  const char *config = "config.ini";
+  IniFile ini(config);
+  if (!ini.open()) {
+    Serial.print("Ini file ");
+    Serial.print(config);
+    Serial.println(" does not exist");
+    // Cannot do anything else
+    while (1)
+      ;
+  }
+  if (!ini.validate(buffer, bufferLen)) {
+    Serial.print("ini file ");
+    Serial.print(ini.getFilename());
+    Serial.print(" not valid: ");
+    printErrorMessage(ini.getError());
+    // Cannot do anything else
+    while (1)
+      ;
+  }
+  if (! ini.getValue("colors", "idleRed", buffer, bufferLen, idleRed)) {
+    Serial.print("idleRed");
+
+    printErrorMessage(ini.getError());
+
+    sdError();
+  }
+  if (! ini.getValue("colors", "idleGreen", buffer, bufferLen, idleGreen)) {
+    Serial.print("idleGreen");
+
+    printErrorMessage(ini.getError());
+
+    sdError();
+  }
+  if (! ini.getValue("colors", "idleBlue", buffer, bufferLen, idleBlue)) {
+    Serial.print("idleBlue");
+
+    printErrorMessage(ini.getError());
+
+    sdError();
+  }
+  if (! ini.getValue("colors", "hitRed", buffer, bufferLen, hitRed)) {
+    Serial.print("hitRed");
+
+    printErrorMessage(ini.getError());
+
+    sdError();
+  }
+  if (! ini.getValue("colors", "hitGreen", buffer, bufferLen, hitGreen)) {
+    Serial.print("hitGreen");
+
+    printErrorMessage(ini.getError());
+
+    sdError();
+  }
+  if (! ini.getValue("colors", "hitBlue", buffer, bufferLen, hitBlue)) {
+    Serial.print("hitBlue");
+
+    printErrorMessage(ini.getError());
+
+    sdError();
+  }
+  if (! ini.getValue("speeds", "hitSpeed", buffer, bufferLen, hitSpeed)) {
+    Serial.print("hitSpeed");
+
+    printErrorMessage(ini.getError());
+
+    sdError();
+  }
+  if (! ini.getValue("speeds", "idleSpeed", buffer, bufferLen, idleSpeed)) {
+    Serial.print("idleSpeed");
+    printErrorMessage(ini.getError());
+
+    sdError();
+  }
+
+
 }
 
+
+void sdError() {
+  pwm.setPin(RED, 4096);
+  delay(100);
+  pwm.setPin(RED, 0);
+  delay(100);
+}
+
+
 void drum() {
-  if (playInterval > 10) {
+
+  if (playInterval > 5) {
     if (sound != 1) {
-      //playWav1.stop();
-      delay(5);
       sound = 1;
       attract = 0;
       Serial.println("DRUM");
@@ -102,52 +227,62 @@ void drum() {
 
 }
 
+void hit() {
+
+  pwm.setPin(BLUE, 0);
+  pwm.setPin(RED, 0);
+  pwm.setPin(GREEN, 0);
+  //Serial.println("Sound");
+  playWav1.play("SOUND.WAV");
+  delay(5);
+
+  elapsedMillis fadeTime;
+  sound = 0;
+  attract = 0;
+  playInterval = 0;
+  for (uint16_t i = 4096; i > 0; i -= 64) {
+    pwm.setPin(RED, i * hitRed);
+    pwm.setPin(GREEN, i * hitGreen);
+    pwm.setPin(BLUE, i * hitBlue);
+    delay(hitSpeed);
+
+  }
+  pwm.setPin(RED, 0);
+  pwm.setPin(GREEN, 0);
+  pwm.setPin(BLUE, 0);
+
+
+}
+
 
 void loop() {
   if (sound == 1) {
-    pwm.setPin(2, 0);
-    //Serial.println("Sound");
-    playWav1.play("CLAP.WAV");
-    delay(25);
-
-    elapsedMillis fadeTime;
-    sound = 0;
-    attract = 0;
-    playInterval = 0;
-    for (uint16_t i = 4096; i > 0; i -= 64) {
-      pwm.setPin(1, i);
-      delay(1);
-
-    }
-    pwm.setPin(1, 0);
-
+    hit();
   }
-
-
 
   if (attract > 3000) {
     Serial.println("Attract");
     for (int i = 64; i < 4096; i += 32) {
       elapsedMillis fadeTime;
-      while (fadeTime < 10) {}
+      while (fadeTime < idleSpeed) {}
       if (attract < 3000) {
         break;
       }
-      //analogWrite(10, i);
-      //analogWrite(9, i/2);
-      pwm.setPin(2, i);
+      pwm.setPin(RED, i * idleRed);
+      pwm.setPin(GREEN, i * idleGreen);
+      pwm.setPin(BLUE, i * idleBlue);
       fadeTime = 0;
 
     }
     for (int i = 4096; i > 64; i -= 32) {
       elapsedMillis fadeTime;
-      while (fadeTime < 10) {}
+      while (fadeTime < idleSpeed) {}
       if (attract < 3000) {
         break;
       }
-      //analogWrite(10, i);
-      //analogWrite(9, i/2);
-      pwm.setPin(2, i);
+      pwm.setPin(RED, i * idleRed);
+      pwm.setPin(GREEN, i * idleGreen);
+      pwm.setPin(BLUE, i * idleBlue);
       fadeTime = 0;
 
     }
