@@ -32,9 +32,11 @@ int sound = 0;
 #define SDCARD_CS_PIN    10
 #define SDCARD_MOSI_PIN  7
 #define SDCARD_SCK_PIN   14
+#define WHITE 0
 #define BLUE 1
 #define GREEN 2
 #define RED 3
+
 
 
 void printErrorMessage(uint8_t e, bool eol = true)
@@ -44,7 +46,7 @@ void printErrorMessage(uint8_t e, bool eol = true)
       Serial.print("no error");
       break;
     case IniFile::errorFileNotFound:
-      Serial.print("file not found");
+      Serial.print("file nocout found");
       break;
     case IniFile::errorFileNotOpen:
       Serial.print("file not open");
@@ -82,9 +84,11 @@ char buffer[bufferLen];
 float idleRed;
 float idleGreen;
 float idleBlue;
+float idleWhite;
 float hitRed;
 float hitGreen;
 float hitBlue;
+float hitWhite;
 long hitSpeed;
 long idleSpeed;
 
@@ -117,6 +121,7 @@ void setup() {
   pwm.setPin(BLUE, 0);
   pwm.setPin(GREEN, 0);
   pwm.setPin(RED, 0);
+  pwm.setPin(WHITE, 0);
   SPI.setMOSI(SDCARD_MOSI_PIN);
   SPI.setSCK(SDCARD_SCK_PIN);
   if (!(SD.begin(SDCARD_CS_PIN))) {
@@ -170,6 +175,13 @@ void setup() {
 
     sdError();
   }
+  if (! ini.getValue("colors", "idleWhite", buffer, bufferLen, idleBlue)) {
+    Serial.print("idleWhite");
+
+    printErrorMessage(ini.getError());
+
+    sdError();
+  }
   if (! ini.getValue("colors", "hitRed", buffer, bufferLen, hitRed)) {
     Serial.print("hitRed");
 
@@ -186,6 +198,13 @@ void setup() {
   }
   if (! ini.getValue("colors", "hitBlue", buffer, bufferLen, hitBlue)) {
     Serial.print("hitBlue");
+
+    printErrorMessage(ini.getError());
+
+    sdError();
+  }
+  if (! ini.getValue("colors", "hitWhite", buffer, bufferLen, hitBlue)) {
+    Serial.print("hitWhite");
 
     printErrorMessage(ini.getError());
 
@@ -233,10 +252,14 @@ void drum() {
 }
 
 void hit() {
+   float vol = analogRead(15);
+  vol = vol / 1024;
+  sgtl5000_1.volume(vol);
 
   pwm.setPin(BLUE, 0);
   pwm.setPin(RED, 0);
   pwm.setPin(GREEN, 0);
+  pwm.setPin(WHITE, 0);
   //Serial.println("Sound");
   playWav1.play("SOUND.WAV");
   delay(5);
@@ -249,12 +272,14 @@ void hit() {
     pwm.setPin(RED, i * hitRed);
     pwm.setPin(GREEN, i * hitGreen);
     pwm.setPin(BLUE, i * hitBlue);
+    pwm.setPin(WHITE, i * hitWhite);
     delay(hitSpeed);
 
   }
   pwm.setPin(RED, 0);
   pwm.setPin(GREEN, 0);
   pwm.setPin(BLUE, 0);
+  pwm.setPin(WHITE, 0);
 
 
 }
@@ -276,6 +301,7 @@ void loop() {
       pwm.setPin(RED, i * idleRed);
       pwm.setPin(GREEN, i * idleGreen);
       pwm.setPin(BLUE, i * idleBlue);
+      pwm.setPin(WHITE, i * idleWhite);
       fadeTime = 0;
 
     }
@@ -288,6 +314,7 @@ void loop() {
       pwm.setPin(RED, i * idleRed);
       pwm.setPin(GREEN, i * idleGreen);
       pwm.setPin(BLUE, i * idleBlue);
+      pwm.setPin(WHITE, i * idleWhite);
       fadeTime = 0;
 
     }
